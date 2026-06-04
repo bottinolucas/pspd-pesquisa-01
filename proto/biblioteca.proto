@@ -1,0 +1,83 @@
+syntax = "proto3";
+
+package biblioteca;
+
+option go_package = "biblioteca/service-p/proto";
+
+
+// Microsservico A - Python 
+service CatalogoService {
+  rpc BuscarLivro    (BuscarLivroRequest)    returns (LivroResponse);
+  rpc ListarLivros   (ListarLivrosRequest)   returns (ListaLivrosResponse);
+  rpc AdicionarLivro (AdicionarLivroRequest) returns (LivroResponse);
+}
+
+message BuscarLivroRequest  { string isbn   = 1; }
+message ListarLivrosRequest  { string filtro = 1; }
+
+message AdicionarLivroRequest {
+  string isbn             = 1;
+  string titulo           = 2;
+  string autor            = 3;
+  int32  ano              = 4;
+  int32  total_exemplares = 5;
+}
+
+message Livro {
+  string isbn   = 1;
+  string titulo = 2;
+  string autor  = 3;
+  int32  ano    = 4;
+}
+
+message LivroResponse {
+  bool   sucesso  = 1;
+  string mensagem = 2;
+  Livro  livro    = 3;
+}
+
+message ListaLivrosResponse {
+  repeated Livro livros = 1;
+}
+
+// Microsservico B - Java
+service EstoqueService {
+  rpc VerificarDisponibilidade (DisponibilidadeRequest)  returns (DisponibilidadeResponse);
+  rpc InicializarEstoque       (InicializarEstoqueRequest) returns (InicializarEstoqueResponse);
+  rpc RealizarEmprestimo       (EmprestimoRequest)       returns (EmprestimoResponse);
+  rpc RealizarDevolucao        (DevolucaoRequest)        returns (DevolucaoResponse);
+  rpc ListarEmprestimos        (ListarEmprestimosRequest) returns (ListaEmprestimosResponse);
+}
+
+message DisponibilidadeRequest { string isbn = 1; }
+message DisponibilidadeResponse {
+  string isbn        = 1;
+  int32  total       = 2;
+  int32  disponiveis = 3;
+  bool   disponivel  = 4;
+}
+
+message InicializarEstoqueRequest  { string isbn = 1; int32 total = 2; }
+message InicializarEstoqueResponse { bool sucesso = 1; }
+
+message EmprestimoRequest { string isbn = 1; string usuario = 2; }
+message EmprestimoResponse {
+  bool   sucesso        = 1;
+  string mensagem       = 2;
+  string id_emprestimo  = 3;
+  string data_devolucao = 4;
+}
+
+message DevolucaoRequest  { string id_emprestimo = 1; }
+message DevolucaoResponse { bool sucesso = 1; string mensagem = 2; }
+
+message ListarEmprestimosRequest { string usuario = 1; }
+message Emprestimo {
+  string id_emprestimo   = 1;
+  string isbn            = 2;
+  string titulo          = 3;
+  string usuario         = 4;
+  string data_emprestimo = 5;
+  string data_devolucao  = 6;
+}
+message ListaEmprestimosResponse { repeated Emprestimo emprestimos = 1; }

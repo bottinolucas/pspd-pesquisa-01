@@ -1,0 +1,68 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: biblioteca-db
+    environment:
+      POSTGRES_DB:       biblioteca
+      POSTGRES_USER:     biblioteca
+      POSTGRES_PASSWORD: biblioteca
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - biblioteca-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U biblioteca"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  microsservico-a:
+    build:
+      context: .
+      dockerfile: microsservico-a/Dockerfile
+    container_name: biblioteca-catalogo
+    environment:
+      GRPC_PORT:    "50051"
+      DATABASE_URL: "postgresql://biblioteca:biblioteca@postgres:5432/biblioteca"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - biblioteca-net
+
+  microsservico-p:
+    build:
+      context: .
+      dockerfile: microsservico-p/Dockerfile
+    container_name: biblioteca-gateway
+    environment:
+      HTTP_PORT:      "8080"
+      SERVICE_A_ADDR: "microsservico-a:50051"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - microsservico-a
+    networks:
+      - biblioteca-net
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: biblioteca-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - microsservico-p
+    networks:
+      - biblioteca-net
+      
+volumes:
+  pg_data:
+
+networks:
+  biblioteca-net:
+    driver: bridge

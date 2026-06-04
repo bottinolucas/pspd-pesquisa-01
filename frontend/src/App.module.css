@@ -1,0 +1,187 @@
+.layout { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ── Header ── */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 18px 40px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.badge {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.68rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+/* ── Nav ── */
+.nav {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  padding: 0 40px;
+}
+.navBtn {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--muted);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.84rem;
+  font-weight: 500;
+  padding: 13px 18px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.navBtn:hover { color: var(--text); }
+.navBtnActive { color: var(--accent) !important; border-bottom-color: var(--accent) !important; }
+
+/* ── Main ── */
+.main {
+  flex: 1;
+  padding: 36px 40px;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* ── Section title ── */
+.paneTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 22px;
+}
+
+/* ── Alert ── */
+.alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px;
+  border-radius: 6px;
+  font-size: 0.84rem;
+  margin-bottom: 14px;
+}
+.alertSuccess { background: rgba(112,201,160,0.1); border: 1px solid var(--success); color: var(--success); }
+.alertError   { background: rgba(224,112,112,0.1); border: 1px solid var(--danger);  color: var(--danger); }
+.alertClose { background: none; border: none; color: inherit; cursor: pointer; padding: 0 0 0 12px; }
+
+/* ── Card ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 22px;
+  margin-bottom: 16px;
+}
+
+/* ── Search ── */
+.searchRow { display: flex; gap: 10px; margin-bottom: 22px; }
+.searchRow input { flex: 1; }
+
+/* ── Form ── */
+.formRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.formRow label { display: block; font-size: 0.76rem; color: var(--muted); margin-bottom: 5px; font-weight: 500; }
+
+/* ── Inputs ── */
+input {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.87rem;
+  padding: 8px 11px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus { border-color: var(--accent); }
+
+/* ── Buttons ── */
+.btn {
+  background: var(--accent);
+  color: #0e0f14;
+  border: none;
+  border-radius: 6px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.84rem;
+  font-weight: 600;
+  padding: 9px 20px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  white-space: nowrap;
+}
+.btn:hover { opacity: 0.85; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btnSecondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+
+/* ── Book cards ── */
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+.bookCard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  transition: border-color 0.15s, transform 0.15s;
+}
+.bookCard:hover { border-color: var(--accent); transform: translateY(-2px); }
+.isbn   { font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--muted); margin-bottom: 7px; }
+.bookTitle  { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700; margin-bottom: 3px; }
+.bookAuthor { font-size: 0.8rem; color: var(--muted); }
+
+/* ── Result box ── */
+.resultBox {
+  background: rgba(112,201,160,0.08);
+  border: 1px solid var(--success);
+  border-radius: var(--radius);
+  padding: 18px;
+  margin-top: 16px;
+}
+.resultBox p { font-size: 0.88rem; line-height: 1.8; }
+.resultOk { color: var(--success); font-weight: 600; margin-bottom: 8px; }
+
+/* ── Footer ── */
+.footer {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 12px 40px;
+  display: flex;
+  gap: 22px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+}
+.footer span { display: flex; align-items: center; gap: 6px; }
+.dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  display: inline-block;
+}
+
+/* ── Misc ── */
+.mono  { font-family: 'DM Mono', monospace; font-size: 0.79rem; color: var(--muted); }
+.muted { color: var(--muted); font-size: 0.88rem; margin-top: 8px; }
