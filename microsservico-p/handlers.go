@@ -10,6 +10,7 @@ import (
 
 type H struct {
 	catalogo pb.CatalogoServiceClient
+	busca    pb.BuscaServiceClient
 }
 
 // GET /api/v1/livros?filtro=xxx
@@ -60,6 +61,43 @@ func (h *H) BuscarLivro(c *gin.Context) {
 		"autor":  resp.Livro.Autor,
 		"ano":    resp.Livro.Ano,
 	})
+}
+
+// GET /api/v1/busca?q=xxx&pagina=0&tamanho=10
+// Busca full-text delegada ao Microsserviço B (Elasticsearch).
+func (h *H) Busca(c *gin.Context) {
+	ctx, cancel := withTimeout(5 * time.Second)
+	defer cancel()
+
+	pagina := atoiDefault(c.Query("pagina"), 0)
+	tamanho := atoiDefault(c.Query("tamanho"), 10)
+
+	resp, err := h.busca.BuscarLivros(ctx, &pb.BuscaRequest{
+		Query:   c.Query("q"),
+		Pagina:  int32(pagina),
+		Tamanho: int32(tamanho),
+	})
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"erro": err.Error()})
+		return
+	}
+
+	type Resultado struct {
+		ISBN   string  `json:"isbn"`
+		Titulo string  `json:"titulo"`
+		Autor  string  `json:"autor"`
+		Ano    int32   `json:"ano"`
+		Score  float64 `json:"score"`
+	}
+
+	resultados := make([]Resultado, 0, len(resp.Resultados))
+	for _, r := range resp.Resultados {
+		resultados = append(resultados, Resultado{
+			ISBN: r.Isbn, Titulo: r.Titulo,
+			Autor: r.Autor, Ano: r.Ano, Score: r.Score,
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{"total": resp.Total, "resultados": resultados})
 }
 
 // POST /api/v1/livros

@@ -81,6 +81,69 @@ function TabCatalogo() {
   )
 }
 
+// ── Aba Busca (Elasticsearch via Microsserviço B) ──────────
+function TabBusca() {
+  const [q, setQ] = useState('')
+  const [resultados, setResultados] = useState([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [buscou, setBuscou] = useState(false)
+  const alert = useAlert()
+
+  const buscar = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await api.busca(q)
+      setResultados(data.resultados || [])
+      setTotal(data.total || 0)
+      setBuscou(true)
+    } catch (e) {
+      alert.show(e.message, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }, [q])
+
+  return (
+    <section>
+      <h2 className={s.paneTitle}>Busca Full-Text (Elasticsearch)</h2>
+      <Alert {...alert} onClose={alert.clear} />
+
+      <div className={s.searchRow}>
+        <input
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && buscar()}
+          placeholder="Buscar por título, autor ou ISBN (com tolerância a erros)…"
+        />
+        <button className={s.btn} onClick={buscar}>Buscar</button>
+      </div>
+
+      {loading ? (
+        <p className={s.muted}>Buscando…</p>
+      ) : !buscou ? (
+        <p className={s.muted}>Digite um termo e pressione Buscar.</p>
+      ) : resultados.length === 0 ? (
+        <p className={s.muted}>Nenhum resultado encontrado.</p>
+      ) : (
+        <>
+          <p className={s.muted}>{total} resultado(s) encontrado(s)</p>
+          <div className={s.cardGrid}>
+            {resultados.map(l => (
+              <div key={l.isbn} className={s.bookCard}>
+                <div className={s.isbn}>{l.isbn}</div>
+                <div className={s.bookTitle}>{l.titulo}</div>
+                <div className={s.bookAuthor}>{l.autor} · {l.ano}</div>
+                <div className={s.muted}>score: {l.score?.toFixed(2)}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
+  )
+}
+
 // ── Aba Adicionar ──────────────────────────────────────────
 function TabAdicionar() {
   const [form, setForm] = useState({ isbn: '', titulo: '', autor: '', ano: '' })
@@ -139,7 +202,8 @@ function TabAdicionar() {
 
 // ── App principal ──────────────────────────────────────────
 const TABS = [
-  { id: 'catalogo',  label: 'Catálogo',       Component: TabCatalogo  },
+  { id: 'catalogo',  label: 'Catálogo',        Component: TabCatalogo  },
+  { id: 'busca',     label: 'Busca',           Component: TabBusca     },
   { id: 'adicionar', label: 'Adicionar Livro', Component: TabAdicionar },
 ]
 
@@ -151,7 +215,7 @@ export default function App() {
     <div className={s.layout}>
       <header className={s.header}>
         <span className={s.logo}>📚 Biblioteca Distribuída</span>
-        <span className={s.badge}>gRPC · Go · Python · PostgreSQL</span>
+        <span className={s.badge}>gRPC · Go · Python · Java · PostgreSQL · Elasticsearch</span>
       </header>
 
       <nav className={s.nav}>
@@ -174,7 +238,9 @@ export default function App() {
         <span><span className={s.dot} />Frontend React :3000</span>
         <span><span className={s.dot} />Gateway Go :8080</span>
         <span><span className={s.dot} />Catálogo Python :50051</span>
+        <span><span className={s.dot} />Busca Java :50052</span>
         <span><span className={s.dot} />PostgreSQL :5432</span>
+        <span><span className={s.dot} />Elasticsearch :9200</span>
       </footer>
     </div>
   )

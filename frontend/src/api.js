@@ -14,4 +14,5 @@ export const api = {
   listarLivros:   (filtro = '') => request(`/livros?filtro=${encodeURIComponent(filtro)}`),
   buscarLivro:    (isbn)        => request(`/livros/${encodeURIComponent(isbn)}`),
   adicionarLivro: (body)        => request('/livros', { method: 'POST', body: JSON.stringify(body) }),
+  busca:          (q = '')      => request(`/busca?q=${encodeURIComponent(q)}`),
 }

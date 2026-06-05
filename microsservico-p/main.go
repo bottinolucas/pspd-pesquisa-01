@@ -35,13 +35,21 @@ func dialGRPC(addr string) *grpc.ClientConn {
 
 func main() {
 	addrA    := getEnv("SERVICE_A_ADDR", "microsservico-a:50051")
+	addrB    := getEnv("SERVICE_B_ADDR", "microsservico-b:50052")
 	httpPort := getEnv("HTTP_PORT", "8080")
 
 	log.Printf("[P] conectando Serviço A (%s)...", addrA)
 	connA := dialGRPC(addrA)
 	defer connA.Close()
 
-	h := &H{catalogo: pb.NewCatalogoServiceClient(connA)}
+	log.Printf("[P] conectando Serviço B (%s)...", addrB)
+	connB := dialGRPC(addrB)
+	defer connB.Close()
+
+	h := &H{
+		catalogo: pb.NewCatalogoServiceClient(connA),
+		busca:    pb.NewBuscaServiceClient(connB),
+	}
 
 	r := gin.Default()
 	r.Use(cors())
@@ -52,6 +60,7 @@ func main() {
 		api.GET("/livros",       h.ListarLivros)
 		api.GET("/livros/:isbn", h.BuscarLivro)
 		api.POST("/livros",      h.AdicionarLivro)
+		api.GET("/busca",        h.Busca)
 	}
 
 	log.Printf("[P] HTTP escutando :%s", httpPort)

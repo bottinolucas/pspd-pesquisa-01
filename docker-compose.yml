@@ -2,6 +2,15 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: biblioteca-db
+    # wal_level=logical habilita a replicacao logica usada pelo CDC (Debezium)
+    command:
+      - "postgres"
+      - "-c"
+      - "wal_level=logical"
+      - "-c"
+      - "max_wal_senders=10"
+      - "-c"
+      - "max_replication_slots=10"
     environment:
       POSTGRES_DB:       biblioteca
       POSTGRES_USER:     biblioteca
@@ -19,6 +28,23 @@ services:
       timeout: 5s
       retries: 10
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.3.4
+    container_name: biblioteca-elasticsearch
+    environment:
+      discovery.type:         single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS:           "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    networks:
+      - biblioteca-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
   microsservico-a:
     build:
       context: .
@@ -33,6 +59,31 @@ services:
     networks:
       - biblioteca-net
 
+  microsservico-b:
+    build:
+      context: .
+      dockerfile: microsservico-b/Dockerfile
+    container_name: biblioteca-busca
+    environment:
+      ELASTICSEARCH_HOSTS: "elasticsearch:9200"
+      ES_INDEX:            "livros"
+      DB_HOST:             "postgres"
+      DB_PORT:             "5432"
+      DB_USER:             "biblioteca"
+      DB_PASSWORD:         "biblioteca"
+      DB_NAME:             "biblioteca"
+      CDC_TABLE_INCLUDE:   "catalogo.livros"
+      CDC_OFFSET_FILE:     "/data/offsets.dat"
+    volumes:
+      - cdc_data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - biblioteca-net
+
   microsservico-p:
     build:
       context: .
@@ -41,10 +92,12 @@ services:
     environment:
       HTTP_PORT:      "8080"
       SERVICE_A_ADDR: "microsservico-a:50051"
+      SERVICE_B_ADDR: "microsservico-b:50052"
     ports:
       - "8080:8080"
     depends_on:
       - microsservico-a
+      - microsservico-b
     networks:
       - biblioteca-net
 
@@ -62,6 +115,7 @@ services:
       
 volumes:
   pg_data:
+  cdc_data:
 
 networks:
   biblioteca-net:
