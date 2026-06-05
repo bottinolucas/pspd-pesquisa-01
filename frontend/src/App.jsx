@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { api } from './api'
 import s from './App.module.css'
 
-// ── Componente de alerta ───────────────────────────────────
+// ── Alert ──────────────────────────────────────────────────
 function Alert({ msg, tipo, onClose }) {
   if (!msg) return null
   return (
@@ -22,11 +22,93 @@ function useAlert() {
   return { ...state, show, clear: () => setState({ msg: '', tipo: '' }) }
 }
 
+// ── Modal Editar ───────────────────────────────────────────
+function ModalEditar({ livro, onClose, onSave }) {
+  const [form, setForm] = useState({
+    titulo: livro.titulo,
+    autor:  livro.autor,
+    ano:    String(livro.ano),
+  })
+  const [loading, setLoading] = useState(false)
+  const alert = useAlert()
+  const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
+
+  const salvar = async () => {
+    if (!form.titulo || !form.autor || !form.ano) {
+      alert.show('Preencha todos os campos.', 'error'); return
+    }
+    setLoading(true)
+    try {
+      await onSave(livro.isbn, { ...form, ano: parseInt(form.ano) })
+      onClose()
+    } catch (e) {
+      alert.show(e.message, 'error')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className={s.modalOverlay} onClick={onClose}>
+      <div className={s.modal} onClick={e => e.stopPropagation()}>
+        <div className={s.modalHeader}>
+          <h3 className={s.modalTitle}>Editar Livro</h3>
+          <button className={s.modalClose} onClick={onClose}>✕</button>
+        </div>
+        <div className={s.modalIsbn}>{livro.isbn}</div>
+        <Alert {...alert} onClose={alert.clear} />
+        <div className={s.formCol}>
+          <div><label>Título</label><input value={form.titulo} onChange={set('titulo')} /></div>
+          <div><label>Autor</label><input value={form.autor} onChange={set('autor')} /></div>
+          <div><label>Ano</label><input type="number" value={form.ano} onChange={set('ano')} /></div>
+        </div>
+        <div className={s.modalActions}>
+          <button className={`${s.btn} ${s.btnSecondary}`} onClick={onClose}>Cancelar</button>
+          <button className={s.btn} onClick={salvar} disabled={loading}>
+            {loading ? 'Salvando…' : 'Salvar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Modal Confirmar Delete ─────────────────────────────────
+function ModalConfirmar({ livro, onClose, onConfirm }) {
+  const [loading, setLoading] = useState(false)
+  const confirmar = async () => {
+    setLoading(true)
+    await onConfirm(livro.isbn)
+    setLoading(false)
+  }
+  return (
+    <div className={s.modalOverlay} onClick={onClose}>
+      <div className={s.modal} onClick={e => e.stopPropagation()}>
+        <div className={s.modalHeader}>
+          <h3 className={s.modalTitle}>Confirmar exclusão</h3>
+          <button className={s.modalClose} onClick={onClose}>✕</button>
+        </div>
+        <p className={s.modalText}>
+          Tem certeza que deseja remover <strong>{livro.titulo}</strong> do catálogo?
+        </p>
+        <div className={s.modalActions}>
+          <button className={`${s.btn} ${s.btnSecondary}`} onClick={onClose}>Cancelar</button>
+          <button className={`${s.btn} ${s.btnDanger}`} onClick={confirmar} disabled={loading}>
+            {loading ? 'Removendo…' : 'Remover'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Aba Catálogo ───────────────────────────────────────────
 function TabCatalogo() {
-  const [livros, setLivros] = useState([])
-  const [filtro, setFiltro] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [livros, setLivros]       = useState([])
+  const [filtro, setFiltro]       = useState('')
+  const [loading, setLoading]     = useState(false)
+  const [editando, setEditando]   = useState(null)
+  const [deletando, setDeletando] = useState(null)
   const alert = useAlert()
 
   const carregar = useCallback(async (f = filtro) => {
@@ -42,6 +124,24 @@ function TabCatalogo() {
   }, [filtro])
 
   useEffect(() => { carregar('') }, [])
+
+  const handleAtualizar = async (isbn, body) => {
+    const data = await api.atualizarLivro(isbn, body)
+    alert.show(data.mensagem, 'success')
+    carregar()
+  }
+
+  const handleDeletar = async (isbn) => {
+    try {
+      const data = await api.deletarLivro(isbn)
+      alert.show(data.mensagem, 'success')
+      setDeletando(null)
+      carregar()
+    } catch (e) {
+      alert.show(e.message, 'error')
+      setDeletando(null)
+    }
+  }
 
   return (
     <section>
@@ -73,21 +173,32 @@ function TabCatalogo() {
               <div className={s.isbn}>{l.isbn}</div>
               <div className={s.bookTitle}>{l.titulo}</div>
               <div className={s.bookAuthor}>{l.autor} · {l.ano}</div>
+              <div className={s.cardActions}>
+                <button className={`${s.btnSm} ${s.btnSecondary}`} onClick={() => setEditando(l)}>
+                  ✏️ Editar
+                </button>
+                <button className={`${s.btnSm} ${s.btnDanger}`} onClick={() => setDeletando(l)}>
+                  🗑️ Remover
+                </button>
+              </div>
             </div>
           ))}
         </div>
       )}
+
+      {editando  && <ModalEditar    livro={editando}  onClose={() => setEditando(null)}  onSave={handleAtualizar} />}
+      {deletando && <ModalConfirmar livro={deletando} onClose={() => setDeletando(null)} onConfirm={handleDeletar} />}
     </section>
   )
 }
 
-// ── Aba Busca (Elasticsearch via Microsserviço B) ──────────
+// ── Aba Busca ──────────────────────────────────────────────
 function TabBusca() {
-  const [q, setQ] = useState('')
+  const [q, setQ]               = useState('')
   const [resultados, setResultados] = useState([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [buscou, setBuscou] = useState(false)
+  const [total, setTotal]       = useState(0)
+  const [loading, setLoading]   = useState(false)
+  const [buscou, setBuscou]     = useState(false)
   const alert = useAlert()
 
   const buscar = useCallback(async () => {
@@ -149,13 +260,11 @@ function TabAdicionar() {
   const [form, setForm] = useState({ isbn: '', titulo: '', autor: '', ano: '' })
   const [loading, setLoading] = useState(false)
   const alert = useAlert()
-
   const set = k => e => setForm(f => ({ ...f, [k]: e.target.value }))
 
   const confirmar = async () => {
     if (!form.isbn || !form.titulo || !form.autor || !form.ano) {
-      alert.show('Preencha todos os campos.', 'error')
-      return
+      alert.show('Preencha todos os campos.', 'error'); return
     }
     setLoading(true)
     try {
@@ -175,22 +284,10 @@ function TabAdicionar() {
       <div className={s.card}>
         <Alert {...alert} onClose={alert.clear} />
         <div className={s.formRow}>
-          <div>
-            <label>ISBN</label>
-            <input value={form.isbn} onChange={set('isbn')} placeholder="978-0-00-000000-0" />
-          </div>
-          <div>
-            <label>Título</label>
-            <input value={form.titulo} onChange={set('titulo')} placeholder="Nome do livro" />
-          </div>
-          <div>
-            <label>Autor</label>
-            <input value={form.autor} onChange={set('autor')} placeholder="Nome do autor" />
-          </div>
-          <div>
-            <label>Ano</label>
-            <input type="number" value={form.ano} onChange={set('ano')} placeholder="2024" />
-          </div>
+          <div><label>ISBN</label><input value={form.isbn} onChange={set('isbn')} placeholder="978-0-00-000000-0" /></div>
+          <div><label>Título</label><input value={form.titulo} onChange={set('titulo')} placeholder="Nome do livro" /></div>
+          <div><label>Autor</label><input value={form.autor} onChange={set('autor')} placeholder="Nome do autor" /></div>
+          <div><label>Ano</label><input type="number" value={form.ano} onChange={set('ano')} placeholder="2024" /></div>
         </div>
         <button className={s.btn} onClick={confirmar} disabled={loading}>
           {loading ? 'Adicionando…' : 'Adicionar Livro'}
@@ -200,11 +297,11 @@ function TabAdicionar() {
   )
 }
 
-// ── App principal ──────────────────────────────────────────
+// ── App ────────────────────────────────────────────────────
 const TABS = [
   { id: 'catalogo',  label: 'Catálogo',        Component: TabCatalogo  },
-  { id: 'busca',     label: 'Busca',           Component: TabBusca     },
-  { id: 'adicionar', label: 'Adicionar Livro', Component: TabAdicionar },
+  { id: 'busca',     label: 'Busca',            Component: TabBusca     },
+  { id: 'adicionar', label: 'Adicionar Livro',  Component: TabAdicionar },
 ]
 
 export default function App() {

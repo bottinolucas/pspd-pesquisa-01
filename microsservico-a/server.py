@@ -124,6 +124,58 @@ class CatalogoServicer(biblioteca_pb2_grpc.CatalogoServiceServicer):
         finally:
             put_conn(conn)
 
+    def AtualizarLivro(self, request, context):
+        log.info("AtualizarLivro isbn=%s", request.isbn)
+        conn = get_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE catalogo.livros SET titulo=%s, autor=%s, ano=%s "
+                    "WHERE isbn=%s",
+                    (request.titulo, request.autor, request.ano, request.isbn)
+                )
+                if cur.rowcount == 0:
+                    return biblioteca_pb2.LivroResponse(
+                        sucesso=False, mensagem="ISBN não encontrado"
+                    )
+            conn.commit()
+            livro = biblioteca_pb2.Livro(
+                isbn=request.isbn, titulo=request.titulo,
+                autor=request.autor, ano=request.ano
+            )
+            return biblioteca_pb2.LivroResponse(
+                sucesso=True, mensagem="Livro atualizado com sucesso", livro=livro
+            )
+        except Exception as e:
+            conn.rollback()
+            return biblioteca_pb2.LivroResponse(sucesso=False, mensagem=str(e))
+        finally:
+            put_conn(conn)
+
+    def DeletarLivro(self, request, context):
+        log.info("DeletarLivro isbn=%s", request.isbn)
+        conn = get_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "DELETE FROM catalogo.livros WHERE isbn=%s",
+                    (request.isbn,)
+                )
+                if cur.rowcount == 0:
+                    return biblioteca_pb2.DeletarLivroResponse(
+                        sucesso=False, mensagem="ISBN não encontrado"
+                    )
+            conn.commit()
+            return biblioteca_pb2.DeletarLivroResponse(
+                sucesso=True, mensagem="Livro deletado com sucesso"
+            )
+        except Exception as e:
+            conn.rollback()
+            return biblioteca_pb2.DeletarLivroResponse(sucesso=False, mensagem=str(e))
+        finally:
+            put_conn(conn)
+
+
 def serve():
     port = int(os.getenv("GRPC_PORT", 50051))
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))

@@ -14,5 +14,7 @@ export const api = {
   listarLivros:   (filtro = '') => request(`/livros?filtro=${encodeURIComponent(filtro)}`),
   buscarLivro:    (isbn)        => request(`/livros/${encodeURIComponent(isbn)}`),
   adicionarLivro: (body)        => request('/livros', { method: 'POST', body: JSON.stringify(body) }),
+  atualizarLivro: (isbn, body)  => request(`/livros/${encodeURIComponent(isbn)}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deletarLivro:   (isbn)        => request(`/livros/${encodeURIComponent(isbn)}`, { method: 'DELETE' }),
   busca:          (q = '')      => request(`/busca?q=${encodeURIComponent(q)}`),
 }

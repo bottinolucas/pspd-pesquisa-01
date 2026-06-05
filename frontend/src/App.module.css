@@ -77,7 +77,7 @@
 }
 .alertSuccess { background: rgba(112,201,160,0.1); border: 1px solid var(--success); color: var(--success); }
 .alertError   { background: rgba(224,112,112,0.1); border: 1px solid var(--danger);  color: var(--danger); }
-.alertClose { background: none; border: none; color: inherit; cursor: pointer; padding: 0 0 0 12px; }
+.alertClose { background: none; border: none; color: inherit; cursor: pointer; padding: 0 0 0 12px; font-size: 1rem; }
 
 /* ── Card ── */
 .card {
@@ -100,6 +100,14 @@
   margin-bottom: 16px;
 }
 .formRow label { display: block; font-size: 0.76rem; color: var(--muted); margin-bottom: 5px; font-weight: 500; }
+
+.formCol {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.formCol label { display: block; font-size: 0.76rem; color: var(--muted); margin-bottom: 5px; font-weight: 500; }
 
 /* ── Inputs ── */
 input {
@@ -130,9 +138,32 @@ input:focus { border-color: var(--accent); }
   transition: opacity 0.15s;
   white-space: nowrap;
 }
-.btn:hover { opacity: 0.85; }
+.btn:hover    { opacity: 0.85; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.btnSecondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+
+.btnSecondary {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btnDanger {
+  background: rgba(224,112,112,0.15);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+}
+.btnDanger:hover { background: rgba(224,112,112,0.25); opacity: 1; }
+
+.btnSm {
+  font-size: 0.76rem;
+  padding: 5px 12px;
+  border-radius: 5px;
+  border: none;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  transition: opacity 0.15s;
+}
+.btnSm:hover { opacity: 0.8; }
 
 /* ── Book cards ── */
 .cardGrid {
@@ -146,22 +177,73 @@ input:focus { border-color: var(--accent); }
   border-radius: var(--radius);
   padding: 18px;
   transition: border-color 0.15s, transform 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 .bookCard:hover { border-color: var(--accent); transform: translateY(-2px); }
-.isbn   { font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--muted); margin-bottom: 7px; }
-.bookTitle  { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700; margin-bottom: 3px; }
-.bookAuthor { font-size: 0.8rem; color: var(--muted); }
+.isbn      { font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--muted); }
+.bookTitle { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700; }
+.bookAuthor { font-size: 0.8rem; color: var(--muted); margin-bottom: 8px; }
+.cardActions { display: flex; gap: 8px; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border); }
 
-/* ── Result box ── */
-.resultBox {
-  background: rgba(112,201,160,0.08);
-  border: 1px solid var(--success);
-  border-radius: var(--radius);
-  padding: 18px;
-  margin-top: 16px;
+/* ── Modal ── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(2px);
 }
-.resultBox p { font-size: 0.88rem; line-height: 1.8; }
-.resultOk { color: var(--success); font-weight: 600; margin-bottom: 8px; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modalTitle {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.modalClose {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1rem;
+  cursor: pointer;
+}
+.modalClose:hover { color: var(--text); }
+.modalIsbn {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: -8px;
+}
+.modalText {
+  font-size: 0.88rem;
+  color: var(--text);
+  line-height: 1.6;
+}
+.modalActions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
 
 /* ── Footer ── */
 .footer {
