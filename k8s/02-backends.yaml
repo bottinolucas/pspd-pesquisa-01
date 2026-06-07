@@ -1,0 +1,120 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: microsservico-a
+spec:
+  selector:
+    matchLabels:
+      app: microsservico-a
+  template:
+    metadata:
+      labels:
+        app: microsservico-a
+    spec:
+      containers:
+      - name: app
+        image: thegm445/biblioteca-catalogo:latest
+        env:
+        - name: DATABASE_URL
+          value: "postgresql://biblioteca:biblioteca@postgres:5432/biblioteca"
+        ports:
+        - containerPort: 50051
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: microsservico-a
+spec:
+  selector:
+    app: microsservico-a
+  ports:
+  - port: 50051
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cdc-data-pvc
+spec:
+  accessModes: [ "ReadWriteOnce" ]
+  resources:
+    requests:
+      storage: 100Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: microsservico-b
+spec:
+  selector:
+    matchLabels:
+      app: microsservico-b
+  template:
+    metadata:
+      labels:
+        app: microsservico-b
+    spec:
+      containers:
+      - name: app
+        image: thegm445/biblioteca-busca:latest
+        env:
+        - name: ELASTICSEARCH_HOSTS
+          value: "elasticsearch:9200"
+        - name: DB_HOST
+          value: "postgres"
+        - name: DB_USER
+          value: "biblioteca"
+        - name: DB_PASSWORD
+          value: "biblioteca"
+        ports:
+        - containerPort: 50052
+        volumeMounts:
+        - name: cdc-data
+          mountPath: /data
+      volumes:
+      - name: cdc-data
+        persistentVolumeClaim:
+          claimName: cdc-data-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: microsservico-b
+spec:
+  selector:
+    app: microsservico-b
+  ports:
+  - port: 50052
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: microsservico-p
+spec:
+  selector:
+    matchLabels:
+      app: microsservico-p
+  template:
+    metadata:
+      labels:
+        app: microsservico-p
+    spec:
+      containers:
+      - name: app
+        image: thegm445/biblioteca-gateway:latest
+        env:
+        - name: SERVICE_A_ADDR
+          value: "microsservico-a:50051"
+        - name: SERVICE_B_ADDR
+          value: "microsservico-b:50052"
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: microsservico-p
+spec:
+  selector:
+    app: microsservico-p
+  ports:
+  - port: 8080
