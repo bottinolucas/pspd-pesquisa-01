@@ -1,27 +1,37 @@
 #!/bin/bash
 
-if [ "$1" == "--clean" ]; then
-    echo "Deletando namespace...."
-    kubectl delete namespace "$NAMESPACE" --wait=true
-fi
+NAMESPACE="biblioteca"
 
 pkill -f "kubectl port-forward" 2>/dev/null
 
-NAMESPACE="biblioteca"
+if [ "$1" == "--clean" ]; then
+    echo "Limpando tudo..."
+    kubectl delete namespace "$NAMESPACE" --wait=true 2>/dev/null
+fi
 
-if kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
-    echo "O namespace '$NAMESPACE' já existe. Continuando...."
-else
-    echo "Namespace '$NAMESPACE' não encontrado. Criando...."
+if ! kubectl get namespace "$NAMESPACE" >/dev/null 2>&1; then
+    echo "Criando namespace '$NAMESPACE'..."
     kubectl create namespace "$NAMESPACE"
 fi
 
-kubectl apply -f k8s/
+echo "Sincronizando ConfigMap..."
+kubectl create configmap postgres-init \
+  --from-file=postgres/init.sql \
+  -n "$NAMESPACE" \
+  --dry-run=client -o yaml | kubectl apply -f - -n "$NAMESPACE"
 
-echo "Aguardando pods subirem..."
+echo "Aplicando..."
+kubectl apply -f k8s/ -n "$NAMESPACE"
 
-kubectl wait --for=condition=ready pod -l app=frontend -n biblioteca --timeout=90s
+# Eu nao recomendo....MAS
+# Se voce quer resetar o banco toda vez, descomente a linha abaixo
+# kubectl delete pod -l app=postgres -n "$NAMESPACE"
 
-echo "Acesse em http://localhost:3000/ "
+echo "Aguardando frontend ficar pronto...(pode ser que demore alguns minutos na primeira vez)"
+kubectl wait --for=condition=ready pod -l app=frontend -n "$NAMESPACE" --timeout=90s
 
-kubectl port-forward svc/frontend 3000:3000 -n biblioteca
+echo "----------------------------------------------------"
+echo "TUDO PRONTO! Acesse: http://localhost:3000"
+echo "----------------------------------------------------"
+
+kubectl port-forward svc/frontend 3000:3000 -n "$NAMESPACE"
