@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package unary;
+
+service UsuarioService {
+  rpc BuscarUsuario (UsuarioRequest)
+      returns (UsuarioResponse);
+}
+
+message UsuarioRequest {
+  int32 id = 1;
+}
+
+message UsuarioResponse {
+  string nome = 1;
+  int32 idade = 2;
+}
