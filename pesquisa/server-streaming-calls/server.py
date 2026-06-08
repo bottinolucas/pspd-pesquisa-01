@@ -24,22 +24,20 @@ class ClimaService(
             time.sleep(1)
 
 
-def serve():
-    server = grpc.server(
+
+server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=10)
     )
 
-    clima_pb2_grpc.add_ClimaServiceServicer_to_server(
+clima_pb2_grpc.add_ClimaServiceServicer_to_server(
         ClimaService(),
         server
     )
 
-    server.add_insecure_port("[::]:50052")
-    server.start()
+server.add_insecure_port("[::]:50052")
+server.start()
 
-    print("Servidor de clima iniciado em localhost:50052")
-    server.wait_for_termination()
+print("Servidor de clima iniciado em localhost:50052")
+server.wait_for_termination()
 
 
-if __name__ == "__main__":
-    serve()

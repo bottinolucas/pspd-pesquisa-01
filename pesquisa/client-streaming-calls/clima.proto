@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+service ClimaService {
+  rpc MonitorarTemperatura (stream TemperaturaRequest)
+      returns (TemperaturaResponse);
+}
+
+message TemperaturaRequest {
+  string cidade = 1;
+  int32 temperatura = 2;
+}
+
+message TemperaturaResponse {
+  string cidade = 1;
+  double media_temperatura = 2;
+  int32 total_medicoes = 3;
+}
