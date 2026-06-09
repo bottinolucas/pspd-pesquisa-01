@@ -52,7 +52,7 @@ spec:
     spec:
       containers:
       - name: app
-        image: thegm445/biblioteca-catalogo-rest:latest
+        image: thegm445/biblioteca-rest-catalogo:latest
         env:
         - name: DATABASE_URL
           value: "postgresql://biblioteca:biblioteca@postgres:5432/biblioteca"
