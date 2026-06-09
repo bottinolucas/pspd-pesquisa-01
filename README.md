@@ -5,22 +5,22 @@ Aplicação distribuída com arquitetura gRPC — trabalho prático de Programac
 ## Arquitetura
 
 ```
-[Browser] ──HTTP──► [Frontend React :3000]
-                            │
-                       /api/* (Nginx proxy)
-                            │
-                    [P: Go/Gin :8080]  ← API Gateway + gRPC Stub 
-                     │            │
-               gRPC :50051   gRPC :50052
-                     │            │
-            [A: Python]          [B: Java]
-            Catálogo             Estoque / Empréstimos
-            schema: catalogo     schema: estoque 
-                     |            |  
-                     │            │  
-                     └─────┬──────┘
-                           │
-                   [PostgreSQL :5432]
+[Browser/k6] ──HTTP──► [Frontend / API Gateway :8080]
+                             │
+                        /api/v1/* (gRPC) ou /api/v2/* (REST)
+                             │
+                     [P: Go/Gin :8080]  ← API Gateway
+                      │            │
+         ┌── gRPC ────┤            ├──── gRPC ──┐
+         │            │            │            │
+         ▼            ▼            ▼            ▼
+   [A: Python]   [A-REST: Py]   [B: Java]   [B: Java REST]
+   gRPC :50051   REST :5001     gRPC:50052  REST :8081
+   Catálogo      Catálogo       Estoque     Estoque
+         │            │            │            │
+         └─────┬──────┘            └──────┬─────┘
+               │                          │
+       [PostgreSQL :5432]          [Elasticsearch]
 ```
 
 ## Pré-requisitos
@@ -84,6 +84,39 @@ Acessa em: **http://localhost:3000**
 
 ---
 
+## Rodar com Kubernetes (minikube/kind)
+
+Se você preferir rodar a arquitetura dentro de um cluster Kubernetes local (ex: Minikube ou Kind), a infraestrutura também está configurada na pasta `k8s/`.
+
+Existe um script facilitador que configura os ConfigMaps e aplica os arquivos YAML:
+
+```bash
+# Executar script que cria o namespace 'biblioteca' e faz o apply dos manifests
+bash run.sh
+```
+O script fará o **port-forward** automático da porta `3000` do frontend no final da execução. Para testar do zero e recriar o cluster (exclui o namespace), utilize:
+```bash
+bash run.sh --clean
+```
+
+---
+
+## Executar Benchmark de Comparação (gRPC vs REST)
+
+Foi implementado um ambiente para testes de carga utilizando **k6** para comparar a comunicação interna via gRPC contra REST HTTP/JSON.
+Para rodar os testes:
+
+1. Suba os containers com `docker compose up -d`
+2. Certifique-se de ter o [k6 instalado](https://k6.io/docs/get-started/installation/)
+3. Execute o script de benchmark:
+   ```bash
+   k6 run benchmark/grpc_vs_rest.js
+   ```
+
+Mais detalhes e execução via Kubernetes podem ser encontrados em `benchmark/README.md`.
+
+---
+
 ## Rodar cada serviço individualmente (dev)
 
 ### 1. Postgres (sempre necessário)
@@ -115,7 +148,36 @@ GRPC_PORT=50051 \
 python server.py
 ```
 
-### 3. Serviço P — API Gateway (Go)
+```
+
+### 3. Serviço A-REST — Catálogo (REST via FastAPI)
+
+```bash
+cd microsservico-a-rest
+
+# Criando ambiente virtual e instalando dependencias
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Roda
+DATABASE_URL="postgresql://biblioteca:biblioteca@localhost:5432/biblioteca" \
+REST_PORT=5001 \
+uvicorn server:app --host 0.0.0.0 --port 5001
+```
+
+### 4. Serviço B — Busca (Java/Quarkus)
+
+```bash
+cd microsservico-b
+
+# Roda em dev mode (necessário Java 21+ e Maven)
+DB_HOST=localhost \
+ELASTICSEARCH_HOSTS=localhost:9200 \
+./mvnw compile quarkus:dev
+```
+
+### 5. Serviço P — API Gateway (Go)
 
 ```bash
 cd microsservico-p
@@ -134,7 +196,7 @@ go mod tidy
 SERVICE_A_ADDR=localhost:50051 HTTP_PORT=8080 go run .
 ```
 
-### 4. Frontend (React + Vite)
+### 6. Frontend (React + Vite)
 
 ```bash
 cd frontend
@@ -151,25 +213,34 @@ Acessa em: **http://localhost:3000**
 ### Ordem de inicialização
 
 ```
-postgres → microsservico-a → microsservico-p → frontend
+postgres → microsservico-a (e/ou a-rest) → microsservico-b → microsservico-p → frontend
 ```
 
 ## Estrutura do projeto
 
-```
-.
 ├── proto/
 │   └── biblioteca.proto        # Contrato gRPC compartilhado
 ├── postgres/
 │   └── init.sql                # Schemas catalogo + estoque
-├── microsservico-a/            # Python 3.12 — Catálogo
+├── benchmark/
+│   └── grpc_vs_rest.js         # Script k6 para teste de carga
+├── microsservico-a/            # Python 3.12 — Catálogo (gRPC)
 │   ├── server.py
 │   ├── requirements.txt
+│   └── Dockerfile
+├── microsservico-a-rest/       # Python 3.12 — Catálogo (REST via FastAPI)
+│   ├── server.py
+│   ├── requirements.txt
+│   └── Dockerfile
+├── microsservico-b/            # Java/Quarkus — Busca (gRPC + REST JAX-RS)
+│   ├── src/
+│   ├── pom.xml
 │   └── Dockerfile
 ├── microsservico-p/            # Go 1.22 — API Gateway
 │   ├── main.go
 │   ├── handlers.go
-│   ├── context.go
+│   ├── rest_handlers.go
+│   ├── rest_client.go
 │   ├── go.mod
 │   └── Dockerfile
 ├── frontend/                   # React + Vite + Nginx

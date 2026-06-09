@@ -36,13 +36,15 @@ func dialGRPC(addr string) *grpc.ClientConn {
 func main() {
 	addrA    := getEnv("SERVICE_A_ADDR", "microsservico-a:50051")
 	addrB    := getEnv("SERVICE_B_ADDR", "microsservico-b:50052")
+	addrARest := getEnv("SERVICE_A_REST_ADDR", "microsservico-a-rest:5001")
+	addrBRest := getEnv("SERVICE_B_REST_ADDR", "microsservico-b:8081")
 	httpPort := getEnv("HTTP_PORT", "8080")
 
-	log.Printf("[P] conectando Serviço A (%s)...", addrA)
+	log.Printf("[P] conectando Serviço A gRPC (%s)...", addrA)
 	connA := dialGRPC(addrA)
 	defer connA.Close()
 
-	log.Printf("[P] conectando Serviço B (%s)...", addrB)
+	log.Printf("[P] conectando Serviço B gRPC (%s)...", addrB)
 	connB := dialGRPC(addrB)
 	defer connB.Close()
 
@@ -51,16 +53,32 @@ func main() {
 		busca:    pb.NewBuscaServiceClient(connB),
 	}
 
+	restH := &RestH{
+		clientA: NewRestClient(addrARest),
+		clientB: NewRestClient(addrBRest),
+	}
+
 	r := gin.Default()
 	r.Use(cors())
 
-	api := r.Group("/api/v1")
+	// gRPC Path
+	apiV1 := r.Group("/api/v1")
 	{
-		api.GET("/health",       func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
-		api.GET("/livros",       h.ListarLivros)
-		api.GET("/livros/:isbn", h.BuscarLivro)
-		api.POST("/livros",      h.AdicionarLivro)
-		api.GET("/busca",        h.Busca)
+		apiV1.GET("/health",       func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok", "protocol": "grpc"}) })
+		apiV1.GET("/livros",       h.ListarLivros)
+		apiV1.GET("/livros/:isbn", h.BuscarLivro)
+		apiV1.POST("/livros",      h.AdicionarLivro)
+		apiV1.GET("/busca",        h.Busca)
+	}
+
+	// REST Path
+	apiV2 := r.Group("/api/v2")
+	{
+		apiV2.GET("/health",       func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok", "protocol": "rest"}) })
+		apiV2.GET("/livros",       restH.ListarLivros)
+		apiV2.GET("/livros/:isbn", restH.BuscarLivro)
+		apiV2.POST("/livros",      restH.AdicionarLivro)
+		apiV2.GET("/busca",        restH.Busca)
 	}
 
 	log.Printf("[P] HTTP escutando :%s", httpPort)
