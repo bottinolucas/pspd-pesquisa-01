@@ -34,7 +34,8 @@ services:
     environment:
       discovery.type:         single-node
       xpack.security.enabled: "false"
-      ES_JAVA_OPTS:           "-Xms512m -Xmx512m"
+      ES_JAVA_OPTS:           "-Xms1g -Xmx1g"
+      cluster.routing.allocation.disk.threshold_enabled: "false"
     ports:
       - "9200:9200"
     networks:
@@ -52,6 +53,20 @@ services:
     container_name: biblioteca-catalogo
     environment:
       GRPC_PORT:    "50051"
+      DATABASE_URL: "postgresql://biblioteca:biblioteca@postgres:5432/biblioteca"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - biblioteca-net
+
+  microsservico-a-rest:
+    build:
+      context: .
+      dockerfile: microsservico-a-rest/Dockerfile
+    container_name: biblioteca-catalogo-rest
+    environment:
+      REST_PORT:    "5001"
       DATABASE_URL: "postgresql://biblioteca:biblioteca@postgres:5432/biblioteca"
     depends_on:
       postgres:
@@ -93,6 +108,8 @@ services:
       HTTP_PORT:      "8080"
       SERVICE_A_ADDR: "microsservico-a:50051"
       SERVICE_B_ADDR: "microsservico-b:50052"
+      SERVICE_A_REST_ADDR: "microsservico-a-rest:5001"
+      SERVICE_B_REST_ADDR: "microsservico-b:8081"
     ports:
       - "8080:8080"
     depends_on:
