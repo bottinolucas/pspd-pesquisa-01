@@ -68,6 +68,8 @@ func main() {
 		apiV1.GET("/livros",       h.ListarLivros)
 		apiV1.GET("/livros/:isbn", h.BuscarLivro)
 		apiV1.POST("/livros",      h.AdicionarLivro)
+		apiV1.PUT("/livros/:isbn", h.AtualizarLivro)
+		apiV1.DELETE("/livros/:isbn", h.DeletarLivro)
 		apiV1.GET("/busca",        h.Busca)
 	}
 
@@ -78,6 +80,8 @@ func main() {
 		apiV2.GET("/livros",       restH.ListarLivros)
 		apiV2.GET("/livros/:isbn", restH.BuscarLivro)
 		apiV2.POST("/livros",      restH.AdicionarLivro)
+		apiV2.PUT("/livros/:isbn", restH.AtualizarLivro)
+		apiV2.DELETE("/livros/:isbn", restH.DeletarLivro)
 		apiV2.GET("/busca",        restH.Busca)
 	}
 
@@ -88,7 +92,7 @@ func main() {
 func cors() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Content-Type")
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)

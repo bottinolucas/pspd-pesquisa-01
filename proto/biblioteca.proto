@@ -12,6 +12,8 @@ service CatalogoService {
   rpc BuscarLivro    (BuscarLivroRequest)    returns (LivroResponse);
   rpc ListarLivros   (ListarLivrosRequest)   returns (ListaLivrosResponse);
   rpc AdicionarLivro (AdicionarLivroRequest) returns (LivroResponse);
+  rpc AtualizarLivro (AtualizarLivroRequest) returns (LivroResponse);
+  rpc DeletarLivro   (DeletarLivroRequest)   returns (DeletarLivroResponse);
 }
 
 message BuscarLivroRequest  { string isbn   = 1; }
@@ -23,6 +25,22 @@ message AdicionarLivroRequest {
   string autor            = 3;
   int32  ano              = 4;
   int32  total_exemplares = 5;
+}
+
+message AtualizarLivroRequest {
+  string isbn   = 1;
+  string titulo = 2;
+  string autor  = 3;
+  int32  ano    = 4;
+}
+
+message DeletarLivroRequest {
+  string isbn = 1;
+}
+
+message DeletarLivroResponse {
+  bool   sucesso  = 1;
+  string mensagem = 2;
 }
 
 message Livro {

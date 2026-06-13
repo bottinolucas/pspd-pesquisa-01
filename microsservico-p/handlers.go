@@ -130,3 +130,52 @@ func (h *H) AdicionarLivro(c *gin.Context) {
 	}
 	c.JSON(http.StatusCreated, gin.H{"mensagem": resp.Mensagem})
 }
+
+// PUT /api/v1/livros/:isbn
+func (h *H) AtualizarLivro(c *gin.Context) {
+	var body struct {
+		Titulo string `json:"titulo" binding:"required"`
+		Autor  string `json:"autor"  binding:"required"`
+		Ano    int32  `json:"ano"    binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"erro": err.Error()})
+		return
+	}
+
+	ctx, cancel := withTimeout(5 * time.Second)
+	defer cancel()
+
+	resp, err := h.catalogo.AtualizarLivro(ctx, &pb.AtualizarLivroRequest{
+		Isbn: c.Param("isbn"), Titulo: body.Titulo,
+		Autor: body.Autor, Ano: body.Ano,
+	})
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"erro": err.Error()})
+		return
+	}
+	if !resp.Sucesso {
+		c.JSON(http.StatusNotFound, gin.H{"erro": resp.Mensagem})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"mensagem": resp.Mensagem})
+}
+
+// DELETE /api/v1/livros/:isbn
+func (h *H) DeletarLivro(c *gin.Context) {
+	ctx, cancel := withTimeout(5 * time.Second)
+	defer cancel()
+
+	resp, err := h.catalogo.DeletarLivro(ctx, &pb.DeletarLivroRequest{
+		Isbn: c.Param("isbn"),
+	})
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"erro": err.Error()})
+		return
+	}
+	if !resp.Sucesso {
+		c.JSON(http.StatusNotFound, gin.H{"erro": resp.Mensagem})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"mensagem": resp.Mensagem})
+}
