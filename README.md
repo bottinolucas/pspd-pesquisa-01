@@ -23,14 +23,99 @@ Aplicação distribuída com arquitetura gRPC — trabalho prático de Programac
        [PostgreSQL :5432]          [Elasticsearch]
 ```
 
-## Pré-requisitos
+---
 
-- Docker + Docker Compose
-- mise (gerenciador de versões)
-- Go (via mise)
-- protoc
+## Pré-requisitos (Instalação)
 
-### Instalar mise
+Para rodar este projeto, você precisará das seguintes ferramentas de infraestrutura instaladas na sua máquina:
+
+1. **Docker & Docker Compose**: Utilizado para virtualização dos containers.
+   - [Instalar Docker Desktop (Windows/Mac)](https://docs.docker.com/get-docker/)
+   - [Instalar Docker Engine (Linux)](https://docs.docker.com/engine/install/)
+   - *(Linux)*: Lembre-se de [configurar o Docker para rodar sem sudo](https://docs.docker.com/engine/install/linux-postinstall/).
+
+2. **Kubernetes via Kind**: `kind` (Kubernetes in Docker) permite rodar clusters locais de forma extremamente leve usando containers Docker como nós do cluster.
+   - [Instalar o Kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation)
+
+3. **kubectl**: A ferramenta de linha de comando para interagir com clusters Kubernetes.
+   - [Instalar o kubectl](https://kubernetes.io/docs/tasks/tools/)
+
+4. **k6 (Apenas para Benchmark)**: Ferramenta de teste de carga moderna.
+   - [Instalar o k6](https://k6.io/docs/get-started/installation/)
+
+---
+
+## Rodar o Projeto com Kubernetes (Recomendado)
+
+O projeto foi projetado para rodar em um cluster Kubernetes. Todos os manifestos e configurações de volume estão em `k8s/`.
+
+Existe um script facilitador (`run.sh`) que cria o cluster Kind (caso não exista), configura o namespace `biblioteca`, aplica todos os manifestos e lida com a sincronização do banco de dados (Postgres e Elasticsearch via CDC Debezium).
+
+Para iniciar tudo do zero, basta executar:
+
+```bash
+bash run.sh
+```
+
+O script fará o build das imagens, as carregará no cluster, fará o deploy e, ao final, iniciará automaticamente o **port-forward** da porta `3000`.
+
+Quando a mensagem de "TUDO PRONTO!" aparecer, acesse no navegador: **http://localhost:3000**
+
+> **Dica:** Para destruir o namespace e recriar o ambiente limpo do zero, utilize `bash run.sh --clean`
+
+---
+
+## Rodar o Projeto com Docker Compose (Alternativa)
+
+Se você preferir não utilizar o Kubernetes, o Docker Compose possui todos os serviços mapeados para subir nativamente de uma só vez.
+
+```bash
+# Inicia todos os serviços em background e faz o build
+docker compose up -d --build
+
+# Para acompanhar os logs
+docker compose logs -f
+
+# Para parar a aplicação
+docker compose down
+
+# Para parar e apagar o banco de dados (reset completo)
+docker compose down --volumes
+```
+
+Neste método, acesse: **http://localhost:3000**
+
+---
+
+## Executar Benchmark de Comparação (gRPC vs REST)
+
+Foi implementado um ambiente para testes de carga utilizando **k6** para comparar a comunicação interna via gRPC contra REST HTTP/JSON.
+
+**Nota de Arquitetura:** Para garantir uma comparação justa entre os protocolos sem sofrer com gargalos de threads ou do GIL do Python, o Serviço A (gRPC) utiliza **gRPC Assíncrono (`grpc.aio`)** junto com o driver de banco de dados não-bloqueante `asyncpg`, possuindo assim paridade arquitetural com o serviço REST (FastAPI).
+
+Para rodar os testes:
+
+1. Certifique-se de ter o cluster K8s/Kind rodando (execute `bash run.sh` previamente).
+2. Certifique-se de ter o k6 instalado (veja os Pré-requisitos).
+3. Execute o script unificado de benchmark, que gerencia automaticamente os port-forwards necessários e valida a saúde das rotas antes de inciar a carga:
+   ```bash
+   bash run-benchmark.sh
+   ```
+
+*(Desenvolvimento)*: Se você modificar o código-fonte de qualquer microsserviço, execute o comando com a flag de build para reconstruir as imagens Docker e recarregá-las no cluster local antes de testar:
+```bash
+bash run-benchmark.sh --build
+```
+
+Mais detalhes sobre a arquitetura do teste e analise de resultados podem ser encontrados em `benchmark/README.md`.
+
+---
+
+## Desenvolvimento Local (Rodar microsserviços individualmente)
+
+Se você for modificar o código, precisará instalar as ferramentas das linguagens:
+
+### Instalar mise (Gerenciador de Versões)
 
 ```bash
 curl https://mise.run | sh
@@ -55,169 +140,59 @@ fish_add_path ~/go/bin
 echo 'export PATH="$HOME/go/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
 ```
 
-### Permissão Docker
-
+### 1. Dependências Base (Postgres)
 ```bash
-sudo usermod -aG docker $USER
-newgrp docker
-```
-
----
-
-## Rodar com Docker Compose (recomendado)
-
-```bash
-# Primeira vez (ou após mudanças no código)
-docker compose up --build
-
-# Próximas vezes
-docker compose up
-
-# Parar
-docker compose down
-
-# Parar e apagar o banco de dados
-docker compose down --volumes
-```
-
-Acessa em: **http://localhost:3000**
-
----
-
-## Rodar com Kubernetes (minikube/kind)
-
-Se você preferir rodar a arquitetura dentro de um cluster Kubernetes local (ex: Minikube ou Kind), a infraestrutura também está configurada na pasta `k8s/`.
-
-Existe um script facilitador que configura os ConfigMaps e aplica os arquivos YAML:
-
-```bash
-# Executar script que cria o namespace 'biblioteca' e faz o apply dos manifests
-bash run.sh
-```
-O script fará o **port-forward** automático da porta `3000` do frontend no final da execução. Para testar do zero e recriar o cluster (exclui o namespace), utilize:
-```bash
-bash run.sh --clean
-```
-
----
-
-## Executar Benchmark de Comparação (gRPC vs REST)
-
-Foi implementado um ambiente para testes de carga utilizando **k6** para comparar a comunicação interna via gRPC contra REST HTTP/JSON.
-Para rodar os testes:
-
-1. Suba os containers com `docker compose up -d`
-2. Certifique-se de ter o [k6 instalado](https://k6.io/docs/get-started/installation/)
-3. Execute o script de benchmark:
-   ```bash
-   k6 run benchmark/grpc_vs_rest.js
-   ```
-
-Mais detalhes e execução via Kubernetes podem ser encontrados em `benchmark/README.md`.
-
----
-
-## Rodar cada serviço individualmente (dev)
-
-### 1. Postgres (sempre necessário)
-
-```bash
+# Subir apenas o banco de dados
 docker compose up postgres
 ```
 
-### 2. Serviço A — Catálogo (Python)
-
+### 2. Serviço A — Catálogo (Python gRPC)
 ```bash
 cd microsservico-a
-
-# Criando ambiente virtual e instalando dependencias
-python -m venv venv
-source venv/bin/activate
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
 # Gera os stubs gRPC
-python -m grpc_tools.protoc \
-  -I../proto \
-  --python_out=. \
-  --grpc_python_out=. \
-  ../proto/biblioteca.proto
+python -m grpc_tools.protoc -I../proto --python_out=. --grpc_python_out=. ../proto/biblioteca.proto
 
-# Roda
-DATABASE_URL="postgresql://biblioteca:biblioteca@localhost:5432/biblioteca" \
-GRPC_PORT=50051 \
-python server.py
+DATABASE_URL="postgresql://biblioteca:biblioteca@localhost:5432/biblioteca" GRPC_PORT=50051 python server.py
 ```
 
-```
-
-### 3. Serviço A-REST — Catálogo (REST via FastAPI)
-
+### 3. Serviço A-REST — Catálogo (Python FastAPI)
 ```bash
 cd microsservico-a-rest
-
-# Criando ambiente virtual e instalando dependencias
-python -m venv venv
-source venv/bin/activate
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 
-# Roda
-DATABASE_URL="postgresql://biblioteca:biblioteca@localhost:5432/biblioteca" \
-REST_PORT=5001 \
-uvicorn server:app --host 0.0.0.0 --port 5001
+DATABASE_URL="postgresql://biblioteca:biblioteca@localhost:5432/biblioteca" REST_PORT=5001 uvicorn server:app --host 0.0.0.0 --port 5001
 ```
 
 ### 4. Serviço B — Busca (Java/Quarkus)
-
 ```bash
 cd microsservico-b
-
-# Roda em dev mode (necessário Java 21+ e Maven)
-DB_HOST=localhost \
-ELASTICSEARCH_HOSTS=localhost:9200 \
-./mvnw compile quarkus:dev
+DB_HOST=localhost ELASTICSEARCH_HOSTS=localhost:9200 ./mvnw compile quarkus:dev
 ```
 
 ### 5. Serviço P — API Gateway (Go)
-
 ```bash
 cd microsservico-p
-
-# Gera os stubs gRPC (só na primeira vez)
 mkdir -p proto
-protoc \
-  --go_out=./proto --go_opt=paths=source_relative \
-  --go-grpc_out=./proto --go-grpc_opt=paths=source_relative \
-  -I../proto \
-  ../proto/biblioteca.proto
-
+protoc --go_out=./proto --go_opt=paths=source_relative --go-grpc_out=./proto --go-grpc_opt=paths=source_relative -I../proto ../proto/biblioteca.proto
 go mod tidy
 
-# Roda
 SERVICE_A_ADDR=localhost:50051 HTTP_PORT=8080 go run .
 ```
 
 ### 6. Frontend (React + Vite)
-
 ```bash
 cd frontend
-
 npm install
-
 npm run dev
 ```
 
-Acessa em: **http://localhost:3000**
+### Estrutura do projeto
 
-> O Vite já faz proxy de `/api/*` para `localhost:8080` automaticamente (configurado no `vite.config.js`).
-
-### Ordem de inicialização
-
-```
-postgres → microsservico-a (e/ou a-rest) → microsservico-b → microsservico-p → frontend
-```
-
-## Estrutura do projeto
-
+```text
 ├── proto/
 │   └── biblioteca.proto        # Contrato gRPC compartilhado
 ├── postgres/
@@ -225,27 +200,9 @@ postgres → microsservico-a (e/ou a-rest) → microsservico-b → microsservico
 ├── benchmark/
 │   └── grpc_vs_rest.js         # Script k6 para teste de carga
 ├── microsservico-a/            # Python 3.12 — Catálogo (gRPC)
-│   ├── server.py
-│   ├── requirements.txt
-│   └── Dockerfile
 ├── microsservico-a-rest/       # Python 3.12 — Catálogo (REST via FastAPI)
-│   ├── server.py
-│   ├── requirements.txt
-│   └── Dockerfile
 ├── microsservico-b/            # Java/Quarkus — Busca (gRPC + REST JAX-RS)
-│   ├── src/
-│   ├── pom.xml
-│   └── Dockerfile
 ├── microsservico-p/            # Go 1.22 — API Gateway
-│   ├── main.go
-│   ├── handlers.go
-│   ├── rest_handlers.go
-│   ├── rest_client.go
-│   ├── go.mod
-│   └── Dockerfile
 ├── frontend/                   # React + Vite + Nginx
-│   ├── src/
-│   ├── nginx.conf
-│   └── Dockerfile
-└── docker-compose.yml
+└── docker-compose.yml          # Definição dos containers
 ```
