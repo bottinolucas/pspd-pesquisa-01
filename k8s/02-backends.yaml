@@ -14,6 +14,7 @@ spec:
       containers:
       - name: app
         image: thegm445/biblioteca-catalogo:latest
+        imagePullPolicy: IfNotPresent
         env:
         - name: DATABASE_URL
           value: "postgresql://biblioteca:biblioteca@postgres:5432/biblioteca"
@@ -21,11 +22,11 @@ spec:
         - containerPort: 50051
         resources:
           requests:
-            cpu: 50m
-            memory: 64Mi
+            cpu: 500m
+            memory: 512Mi
           limits:
-            cpu: 200m
-            memory: 128Mi
+            cpu: 1000m
+            memory: 1024Mi
 ---
 apiVersion: v1
 kind: Service
@@ -53,6 +54,7 @@ spec:
       containers:
       - name: app
         image: thegm445/biblioteca-rest-catalogo:latest
+        imagePullPolicy: IfNotPresent
         env:
         - name: DATABASE_URL
           value: "postgresql://biblioteca:biblioteca@postgres:5432/biblioteca"
@@ -60,11 +62,11 @@ spec:
         - containerPort: 5001
         resources:
           requests:
-            cpu: 50m
-            memory: 64Mi
+            cpu: 500m
+            memory: 512Mi
           limits:
-            cpu: 200m
-            memory: 128Mi
+            cpu: 1000m
+            memory: 1024Mi
 ---
 apiVersion: v1
 kind: Service
@@ -102,6 +104,7 @@ spec:
       containers:
       - name: app
         image: thegm445/biblioteca-busca:latest
+        imagePullPolicy: IfNotPresent
         env:
         - name: ELASTICSEARCH_HOSTS
           value: "elasticsearch:9200"
@@ -116,11 +119,11 @@ spec:
         - containerPort: 8081
         resources:
           requests:
-            cpu: 100m
-            memory: 256Mi
-          limits:
             cpu: 500m
             memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1024Mi
         volumeMounts:
         - name: cdc-data
           mountPath: /data
@@ -160,6 +163,7 @@ spec:
       containers:
       - name: app
         image: thegm445/biblioteca-gateway:latest
+        imagePullPolicy: IfNotPresent
         env:
         - name: SERVICE_A_ADDR
           value: "microsservico-a:50051"
@@ -173,11 +177,11 @@ spec:
         - containerPort: 8080
         resources:
           requests:
-            cpu: 50m
-            memory: 64Mi
+            cpu: 500m
+            memory: 512Mi
           limits:
-            cpu: 200m
-            memory: 128Mi
+            cpu: 1000m
+            memory: 1024Mi
 ---
 apiVersion: v1
 kind: Service

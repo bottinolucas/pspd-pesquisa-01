@@ -14,6 +14,7 @@ spec:
       containers:
       - name: app
         image: thegm445/biblioteca-frontend:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
 ---
