@@ -1,10 +1,14 @@
-from concurrent import futures
+import asyncio
 import logging
 import os
+
 import grpc
-import psycopg2
-import psycopg2.pool
+from grpc import aio
+# pyrefly: ignore [missing-import]
+import asyncpg
+# pyrefly: ignore [missing-import]
 import biblioteca_pb2
+# pyrefly: ignore [missing-import]
 import biblioteca_pb2_grpc
 
 logging.basicConfig(
@@ -18,38 +22,25 @@ DB_URL = os.getenv(
     "postgresql://biblioteca:biblioteca@postgres:5432/biblioteca"
 )
 
-_pool = None
+pool: asyncpg.Pool = None
 
-def get_pool():
-    global _pool
-    if _pool is None:
-        _pool = psycopg2.pool.ThreadedConnectionPool(2, 10, DB_URL)
-    return _pool
-
-def get_conn():
-    return get_pool().getconn()
-
-def put_conn(conn):
-    get_pool().putconn(conn)
 
 def row_to_livro(row) -> biblioteca_pb2.Livro:
     return biblioteca_pb2.Livro(
-        isbn=row[0], titulo=row[1], autor=row[2], ano=row[3]
+        isbn=row['isbn'], titulo=row['titulo'], autor=row['autor'], ano=row['ano']
     )
+
 
 class CatalogoServicer(biblioteca_pb2_grpc.CatalogoServiceServicer):
 
-    def BuscarLivro(self, request, context):
+    async def BuscarLivro(self, request, context):
         log.info("BuscarLivro isbn=%s", request.isbn)
-        conn = get_conn()
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT isbn, titulo, autor, ano "
-                    "FROM catalogo.livros WHERE isbn = %s",
-                    (request.isbn,)
-                )
-                row = cur.fetchone()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT isbn, titulo, autor, ano "
+                "FROM catalogo.livros WHERE isbn = $1",
+                request.isbn
+            )
             if row:
                 return biblioteca_pb2.LivroResponse(
                     sucesso=True,
@@ -61,131 +52,115 @@ class CatalogoServicer(biblioteca_pb2_grpc.CatalogoServiceServicer):
             return biblioteca_pb2.LivroResponse(
                 sucesso=False, mensagem="Livro não encontrado"
             )
-        finally:
-            put_conn(conn)
 
-    def ListarLivros(self, request, context):
+    async def ListarLivros(self, request, context):
         log.info("ListarLivros filtro='%s'", request.filtro)
-        conn = get_conn()
-        try:
-            with conn.cursor() as cur:
-                if request.filtro:
-                    f = f"%{request.filtro.lower()}%"
-                    cur.execute(
-                        "SELECT isbn, titulo, autor, ano "
-                        "FROM catalogo.livros "
-                        "WHERE LOWER(titulo) LIKE %s OR LOWER(autor) LIKE %s "
-                        "ORDER BY titulo",
-                        (f, f)
-                    )
-                else:
-                    cur.execute(
-                        "SELECT isbn, titulo, autor, ano "
-                        "FROM catalogo.livros ORDER BY titulo"
-                    )
-                rows = cur.fetchall()
+        async with pool.acquire() as conn:
+            if request.filtro:
+                f = f"%{request.filtro.lower()}%"
+                rows = await conn.fetch(
+                    "SELECT isbn, titulo, autor, ano "
+                    "FROM catalogo.livros "
+                    "WHERE LOWER(titulo) LIKE $1 OR LOWER(autor) LIKE $2 "
+                    "ORDER BY titulo",
+                    f, f
+                )
+            else:
+                rows = await conn.fetch(
+                    "SELECT isbn, titulo, autor, ano "
+                    "FROM catalogo.livros ORDER BY titulo"
+                )
             return biblioteca_pb2.ListaLivrosResponse(
                 livros=[row_to_livro(r) for r in rows]
             )
-        finally:
-            put_conn(conn)
 
-    def AdicionarLivro(self, request, context):
+    async def AdicionarLivro(self, request, context):
         log.info("AdicionarLivro isbn=%s titulo='%s'", request.isbn, request.titulo)
-        conn = get_conn()
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "SELECT isbn FROM catalogo.livros WHERE isbn = %s",
-                    (request.isbn,)
+        async with pool.acquire() as conn:
+            existing = await conn.fetchrow(
+                "SELECT isbn FROM catalogo.livros WHERE isbn = $1",
+                request.isbn
+            )
+            if existing:
+                return biblioteca_pb2.LivroResponse(
+                    sucesso=False,
+                    mensagem=f"ISBN {request.isbn} já existe"
                 )
-                if cur.fetchone():
-                    return biblioteca_pb2.LivroResponse(
-                        sucesso=False,
-                        mensagem=f"ISBN {request.isbn} já existe"
-                    )
-                cur.execute(
+            try:
+                await conn.execute(
                     "INSERT INTO catalogo.livros (isbn, titulo, autor, ano) "
-                    "VALUES (%s, %s, %s, %s)",
-                    (request.isbn, request.titulo, request.autor, request.ano)
+                    "VALUES ($1, $2, $3, $4)",
+                    request.isbn, request.titulo, request.autor, request.ano
                 )
-            conn.commit()
-            livro = biblioteca_pb2.Livro(
-                isbn=request.isbn, titulo=request.titulo,
-                autor=request.autor, ano=request.ano
-            )
-            return biblioteca_pb2.LivroResponse(
-                sucesso=True, mensagem="Livro adicionado com sucesso", livro=livro
-            )
-        except Exception as e:
-            conn.rollback()
-            log.error("Erro ao adicionar: %s", e)
-            return biblioteca_pb2.LivroResponse(sucesso=False, mensagem=str(e))
-        finally:
-            put_conn(conn)
+                livro = biblioteca_pb2.Livro(
+                    isbn=request.isbn, titulo=request.titulo,
+                    autor=request.autor, ano=request.ano
+                )
+                return biblioteca_pb2.LivroResponse(
+                    sucesso=True, mensagem="Livro adicionado com sucesso", livro=livro
+                )
+            except Exception as e:
+                log.error("Erro ao adicionar: %s", e)
+                return biblioteca_pb2.LivroResponse(sucesso=False, mensagem=str(e))
 
-    def AtualizarLivro(self, request, context):
+    async def AtualizarLivro(self, request, context):
         log.info("AtualizarLivro isbn=%s", request.isbn)
-        conn = get_conn()
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "UPDATE catalogo.livros SET titulo=%s, autor=%s, ano=%s "
-                    "WHERE isbn=%s",
-                    (request.titulo, request.autor, request.ano, request.isbn)
+        async with pool.acquire() as conn:
+            try:
+                res = await conn.execute(
+                    "UPDATE catalogo.livros SET titulo=$1, autor=$2, ano=$3 "
+                    "WHERE isbn=$4",
+                    request.titulo, request.autor, request.ano, request.isbn
                 )
-                if cur.rowcount == 0:
+                # res é uma string do tipo "UPDATE 1" ou "UPDATE 0"
+                if res == "UPDATE 0":
                     return biblioteca_pb2.LivroResponse(
                         sucesso=False, mensagem="ISBN não encontrado"
                     )
-            conn.commit()
-            livro = biblioteca_pb2.Livro(
-                isbn=request.isbn, titulo=request.titulo,
-                autor=request.autor, ano=request.ano
-            )
-            return biblioteca_pb2.LivroResponse(
-                sucesso=True, mensagem="Livro atualizado com sucesso", livro=livro
-            )
-        except Exception as e:
-            conn.rollback()
-            return biblioteca_pb2.LivroResponse(sucesso=False, mensagem=str(e))
-        finally:
-            put_conn(conn)
-
-    def DeletarLivro(self, request, context):
-        log.info("DeletarLivro isbn=%s", request.isbn)
-        conn = get_conn()
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    "DELETE FROM catalogo.livros WHERE isbn=%s",
-                    (request.isbn,)
+                livro = biblioteca_pb2.Livro(
+                    isbn=request.isbn, titulo=request.titulo,
+                    autor=request.autor, ano=request.ano
                 )
-                if cur.rowcount == 0:
+                return biblioteca_pb2.LivroResponse(
+                    sucesso=True, mensagem="Livro atualizado com sucesso", livro=livro
+                )
+            except Exception as e:
+                return biblioteca_pb2.LivroResponse(sucesso=False, mensagem=str(e))
+
+    async def DeletarLivro(self, request, context):
+        log.info("DeletarLivro isbn=%s", request.isbn)
+        async with pool.acquire() as conn:
+            try:
+                res = await conn.execute(
+                    "DELETE FROM catalogo.livros WHERE isbn=$1",
+                    request.isbn
+                )
+                if res == "DELETE 0":
                     return biblioteca_pb2.DeletarLivroResponse(
                         sucesso=False, mensagem="ISBN não encontrado"
                     )
-            conn.commit()
-            return biblioteca_pb2.DeletarLivroResponse(
-                sucesso=True, mensagem="Livro deletado com sucesso"
-            )
-        except Exception as e:
-            conn.rollback()
-            return biblioteca_pb2.DeletarLivroResponse(sucesso=False, mensagem=str(e))
-        finally:
-            put_conn(conn)
+                return biblioteca_pb2.DeletarLivroResponse(
+                    sucesso=True, mensagem="Livro deletado com sucesso"
+                )
+            except Exception as e:
+                return biblioteca_pb2.DeletarLivroResponse(sucesso=False, mensagem=str(e))
 
 
-def serve():
+async def serve():
+    global pool
+    log.info("Inicializando pool de conexões asyncpg...")
+    pool = await asyncpg.create_pool(dsn=DB_URL, min_size=2, max_size=100)
+
     port = int(os.getenv("GRPC_PORT", 50051))
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = aio.server()
     biblioteca_pb2_grpc.add_CatalogoServiceServicer_to_server(
         CatalogoServicer(), server
     )
     server.add_insecure_port(f"[::]:{port}")
-    server.start()
-    log.info("Serviço A iniciado na porta %d", port)
-    server.wait_for_termination()
+    await server.start()
+    log.info("Serviço A (async) iniciado na porta %d", port)
+    await server.wait_for_termination()
+    await pool.close()
 
 if __name__ == "__main__":
-    serve()
+    asyncio.run(serve())

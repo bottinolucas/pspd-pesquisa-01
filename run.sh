@@ -27,8 +27,16 @@ kubectl apply -f k8s/ -n "$NAMESPACE"
 # Se voce quer resetar o banco toda vez, descomente a linha abaixo
 # kubectl delete pod -l app=postgres -n "$NAMESPACE"
 
-echo "Aguardando frontend ficar pronto...(pode ser que demore alguns minutos na primeira vez)"
+echo "Aguardando pods ficarem prontos...(pode ser que demore alguns minutos na primeira vez)"
 kubectl wait --for=condition=ready pod -l app=frontend -n "$NAMESPACE" --timeout=90s
+kubectl wait --for=condition=ready pod -l app=microsservico-b -n "$NAMESPACE" --timeout=90s
+
+# Força o CDC (Debezium) a sincronizar os dados do init.sql para o Elasticsearch.
+# O Debezium só captura mudanças; dados inseridos antes dele conectar ficam invisíveis.
+echo "Sincronizando dados para Elasticsearch (CDC)..."
+sleep 5
+kubectl exec deployment/postgres -n "$NAMESPACE" -- \
+  psql -U biblioteca -d biblioteca -c "UPDATE catalogo.livros SET titulo = titulo;" 2>/dev/null
 
 echo "----------------------------------------------------"
 echo "TUDO PRONTO! Acesse: http://localhost:3000"

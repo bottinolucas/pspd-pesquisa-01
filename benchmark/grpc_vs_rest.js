@@ -9,8 +9,8 @@ export const options = {
             executor: 'ramping-vus',
             startVUs: 0,
             stages: [
-                { duration: '5s', target: 50 }, // Ramp-up
-                { duration: '20s', target: 50 }, // Sustain
+                { duration: '5s', target: 100 }, // Ramp-up
+                { duration: '20s', target: 100 }, // Sustain
                 { duration: '5s', target: 0 },  // Ramp-down
             ],
             exec: 'testGrpcPath',
@@ -20,8 +20,8 @@ export const options = {
             executor: 'ramping-vus',
             startVUs: 0,
             stages: [
-                { duration: '5s', target: 50 }, // Ramp-up
-                { duration: '20s', target: 50 }, // Sustain
+                { duration: '5s', target: 100 }, // Ramp-up
+                { duration: '20s', target: 100 }, // Sustain
                 { duration: '5s', target: 0 },  // Ramp-down
             ],
             exec: 'testRestPath',
@@ -40,7 +40,7 @@ export function testGrpcPath() {
     check(res, {
         'is status 200': (r) => r.status === 200,
     });
-    sleep(1);
+    sleep(0.25);
 }
 
 export function testRestPath() {
@@ -48,5 +48,5 @@ export function testRestPath() {
     check(res, {
         'is status 200': (r) => r.status === 200,
     });
-    sleep(1);
+    sleep(0.25);
 }
